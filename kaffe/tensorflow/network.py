@@ -1,13 +1,10 @@
 import numpy as np
 import tensorflow as tf
+from past.builtins import basestring
+
 slim = tf.contrib.slim
 
 DEFAULT_PADDING = 'SAME'
-
-try:
-  basestring
-except NameError:
-  basestring = str
 
 
 def layer(op):
