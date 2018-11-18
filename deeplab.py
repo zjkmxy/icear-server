@@ -20,7 +20,7 @@ class DeepLab:
     def __init__(self, gpu_ids, root_path):
         self.root_path = root_path
         self.upload_path = os.path.join(root_path, "upload")
-        self.result_path = os.path.join(root_path, "results/deeplab")
+        self.result_path = os.path.join(root_path, "results")
         os.makedirs(self.upload_path, exist_ok=True)
         os.makedirs(self.result_path, exist_ok=True)
         self.weights_model_path = os.path.join(root_path, "deeplab_resnet.ckpt")
@@ -39,8 +39,9 @@ class DeepLab:
             worker.join()
 
     def send(self, request):
-        # type: (DeepLabRequest) -> None
+        # type: (DeepLabRequest) -> bool
         self.request_queue.put(request)
+        return True
 
     def join_all(self):
         self.request_queue.join()

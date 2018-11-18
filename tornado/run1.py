@@ -1,6 +1,6 @@
 from __future__ import print_function
 import os, sys, signal
-sys.path.insert(0, 'fast-style-transfer')
+sys.path.insert(0, 'fast_style_transfer')
 
 # adding import path for the directory above this sctip (for deeplab modules)
 myPath = os.path.dirname(sys.argv[0])
@@ -246,6 +246,8 @@ def main():
     authorModels = glob.glob(os.path.join(modelsDir, '*', '*.ckpt'))
     allModels = []
     for m in modelsList:
+        if m[0] == '.':
+            continue
         files = os.listdir(os.path.join(modelsDir, m))
         if len(files) > 1: # that's our models
             allModels.append(m)
