@@ -6,8 +6,6 @@ import tensorflow as tf
 from deeplab_resnet import DeepLabResNetModel, decode_labels, dense_crf
 from PIL import Image
 
-IMG_MEAN = np.array((104.00698793,116.66876762,122.67891434), dtype=np.float32)
-
 
 class DeepLabRequest:
     def __init__(self, prefix, input_file_name, result_file_name):
@@ -17,7 +15,10 @@ class DeepLabRequest:
 
 
 class DeepLab:
-    def __init__(self, gpu_ids, root_path):
+    def __init__(self, gpu_ids, root_path, img_mean):
+        self.on_finished = None
+
+        self.img_mean = np.array(img_mean, dtype=np.float32)
         self.root_path = root_path
         self.upload_path = os.path.join(root_path, "upload")
         self.result_path = os.path.join(root_path, "results")
@@ -63,6 +64,8 @@ class _Worker(Thread):
             if req is None:
                 break
             self._process(req)
+            if self.manager.on_finished is not None:
+                self.manager.on_finished(req.prefix, "deeplab")
             self.request_queue.task_done()
 
     def _process(self, req):
@@ -75,7 +78,7 @@ class _Worker(Thread):
         img_r, img_g, img_b = tf.split(img_rgb, 3, axis=2)
         img_bgr = tf.cast(tf.concat([img_b, img_g, img_r], 2), dtype=tf.float32)
         # Extract mean.
-        img_bgr -= IMG_MEAN
+        img_bgr -= self.manager.img_mean
 
         # Create network.
         net = DeepLabResNetModel({'data': tf.expand_dims(img_bgr, dim=0)}, is_training=False)

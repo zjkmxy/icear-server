@@ -1,0 +1,37 @@
+// This is the Protobuf definition for RepoCommandParameter, described at:
+// http://redmine.named-data.net/projects/repo-ng/wiki/Repo_Command
+// Compile this file using:
+// protoc --python_out=. *.proto
+
+syntax = "proto2";
+package ndn_message;
+
+message Name {
+  repeated bytes component = 8;
+}
+
+message OpComponent {
+  required bytes model = 200;
+  optional uint32 flags = 201;
+}
+
+message Operations {
+  repeated OpComponent components = 203;
+}
+
+message Status {
+  required uint32 retry_after = 204;
+}
+
+// Protobuf has no "outer" message type, so we need to put the TLV XXX
+// message inside an outer "typeless" XXXMessage.
+message SegmentParameterMessage {
+  message SegmentParameter {
+    required Name name = 7;
+    required uint32 start_frame = 220;
+    required uint32 end_frame = 221;
+    required Operations operations = 222;
+  }
+
+  required SegmentParameter Segment_parameter = 210;
+}

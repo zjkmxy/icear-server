@@ -4,8 +4,7 @@ from threading import Thread
 import numpy as np
 import tensorflow as tf
 import fast_style_transfer.transform as transform
-import fast_style_transfer.vgg as vgg
-from fast_style_transfer.utils import save_img, get_img, exists, list_files
+from fast_style_transfer.utils import save_img, get_img
 
 DEVICE_PREFIX = '/gpu:'
 
@@ -20,6 +19,7 @@ class FstRequest:
 
 class Fst:
     def __init__(self, gpu_ids, root_path, img_shape):
+        self.on_finished = None
         self.img_shape = img_shape
 
         # Set paths.
@@ -103,6 +103,8 @@ class _Worker(Thread):
                     break
                 if req.model_name in self.manager.models:
                     self._process(req)
+                if self.manager.on_finished is not None:
+                    self.manager.on_finished(req.prefix, req.model_name)
                 self.request_queue.task_done()
 
     def _load_model(self, model_file):
@@ -117,7 +119,8 @@ class _Worker(Thread):
         ret_path = os.path.join(self.manager.result_path, req.prefix, req.result_file_name)
         # Prepare image.
         img = get_img(img_path)
-        X = np.zeros(self.batch_shape, dtype=np.float32)
-        X[0] = img
-        _preds = self.sess.run(self.preds, feed_dict={self.img_placeholder: X})
+        x = np.zeros(self.batch_shape, dtype=np.float32)
+        x[0] = img
+        _preds = self.sess.run(self.preds, feed_dict={self.img_placeholder: x})
+        os.makedirs(os.path.dirname(ret_path), exist_ok=True)
         save_img(ret_path, _preds[0])
