@@ -24,14 +24,21 @@ class Fetcher:
         # TODO: window, retransmission, on_nack, on_timeout, segmentation
         for frame_id in range(start_frame, end_frame + 1):
             name = Name(prefix).append(str(frame_id))
+            print("Fetching", name.toUri())
             interest = Interest(name)
             interest.setCanBePrefix(False)
-            self.face.expressInterest(interest, self.on_data)
+            def on_timeout(*params):
+                print("Timeout", params)
+            def on_nack(interest, nack):
+                print("Nack", interest.name.toUri())
+                print(nack.getReason(), nack.getOtherReasonCode())
+            self.face.expressInterest(interest, self.on_data, on_timeout, on_nack)
 
     def on_data(self, _, data):
         # type: (Interest, Data) -> None
         # TODO: segmentation
         # Save data to file
+        print("On img.jpg", data.name)
         file_path = os.path.join(self.upload_path, data.name.toUri()[1:])
         os.makedirs(file_path, exist_ok=True)
         with open(os.path.join(file_path, "img.jpg"), "wb") as f:

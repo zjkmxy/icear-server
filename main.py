@@ -20,32 +20,12 @@ def main():
     fst_inst = Fst(range(1), root_path, IMG_SHAPE)
     server = Server(deeplab_inst, fst_inst, root_path)
 
-    ops = Operations()
-    op = ops.components.add()
-    op.model = bytes("deeplab", "utf-8")
-    op.flags = 0
-    op = ops.components.add()
-    op.model = bytes("la_muse", "utf-8")
-    op.flags = 0
-    op = ops.components.add()
-    op.model = bytes("rain_princess", "utf-8")
-    op.flags = 0
-
-    server.status_set[Name("/example01")] = Status(ops, 0.0, 0.0)
-
-    data = Data(Name("/example01"))
-    with open(os.path.join(root_path, "upload/example02/img.jpg"), "rb") as f:
-        data.content = Blob(bytearray(f.read()))
-    server.fetcher.on_data(None, data)
+    server.run()
 
     deeplab_inst.join_all()
     fst_inst.join_all()
     deeplab_inst.shutdown()
     fst_inst.shutdown()
-
-    for k, v in server.status_set.items():
-        for op in v.operations.components:
-            print(op.model.decode("utf-8"), op.flags)
 
 
 if __name__ == "__main__":

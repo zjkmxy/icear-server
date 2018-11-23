@@ -1,18 +1,19 @@
 import time
 from pyndn import Face, Name, Interest, InterestFilter, Data, Blob
 from pyndn.security import KeyChain
+from pyndn.encoding import ProtobufTlv
 from deeplab import DeepLab, DeepLabRequest
 from fst import Fst, FstRequest
 import logging
 from .fetcher import Fetcher
-from .messages.request_msg_pb2 import OpComponent
+from .messages.request_msg_pb2 import OpComponent, SegmentParameterMessage
 import os
+from copy import copy
 
 DISCONN_RETRY_TIME = 2.0
 SERVER_PREFIX = "icear-server"
 COMMAND_PREFIX = "calc"
 RESULT_PREFIX = "result"
-# STATUS_PREFIX = "/status"
 
 # No such request for specified frame
 NACK_NO_REQUEST = 404
@@ -31,6 +32,7 @@ NACK_NOT_SUPPORTED = 401
 # No flag
 FLAG_NONE = 0
 # No input data in the network
+# TODO: Fix this dirty way
 FLAG_NO_INPUT = 1
 FLAG_FETCHING = 2
 FLAG_PROCESSING = 4
@@ -66,7 +68,6 @@ class Server:
 
         self.command_filter_id = 0
         self.result_filter_id = 0
-        # self.status_filter_id = 0
 
         # Status set, one item per frame
         self.status_set = {}
@@ -75,9 +76,11 @@ class Server:
         self.running = True
         while self.running:
             self.face = Face()
+            self.face.setCommandSigningInfo(self.keychain, self.keychain.getDefaultCertificateName())
             self._restart = False
             try:
                 self._network_start()
+                print("Starting...")
                 while self.running and not self._restart:
                     self.face.processEvents()
                     time.sleep(0.01)
@@ -98,13 +101,10 @@ class Server:
             Name(SERVER_PREFIX).append(COMMAND_PREFIX), self.on_command)
         self.result_filter_id = self.face.setInterestFilter(
             Name(SERVER_PREFIX).append(RESULT_PREFIX), self.on_result_interest)
-        # self.status_filter_id = self.face.setInterestFilter(
-        #     Name(SERVER_PREFIX).append(STATUS_PREFIX), self.on_status_interest)
         self.fetcher.network_start(self.face)
 
     def _network_stop(self):
         self.fetcher.network_stop()
-        # self.face.unsetInterestFilter(self.status_filter_id)
         self.face.unsetInterestFilter(self.result_filter_id)
         self.face.unsetInterestFilter(self.command_filter_id)
 
@@ -113,21 +113,34 @@ class Server:
         logging.warning("Register failed for prefix", prefix.toUri())
         self._restart = True
 
-    def on_command(self, prefix, interest, face, interest_filter_id, filter_obj):
+    def on_command(self, _prefix, interest, _face, _interest_filter_id, _filter_obj):
         # type: (Name, Interest, Face, int, InterestFilter) -> None
         # TODO: On Command
-        pass
+        parameter_msg = SegmentParameterMessage()
+        ProtobufTlv.decode(parameter_msg, interest.name[-1].getValue())
+        parameter = parameter_msg.segment_parameter
+        prefix = Name()
+        for compo in parameter.name.component:
+            prefix.append(compo.decode("utf-8"))
+        # TODO: Check operations
+        for frame_id in range(parameter.start_frame, parameter.end_frame + 1):
+            frame_name = Name(prefix).append(str(frame_id))
+            self.status_set[frame_name] = Status(copy(parameter.operations), 0, 0)
+        # TODO: Server should check whether data is here, not fetcher
+        self.fetcher.fetch_data(prefix, parameter.start_frame, parameter.end_frame)
+        # TODO: Response with succeed code
 
     def on_result_interest(self, prefix, interest, face, interest_filter_id, filter_obj):
         # type: (Name, Interest, Face, int, InterestFilter) -> None
         prefix_len = Name(SERVER_PREFIX).append(RESULT_PREFIX).size()
         data_name = interest.name[prefix_len:]
+        print("On result", data_name.toUri())
         key, stat = self._result_set_prefix_match(data_name)
         if key is None:
             self.negative_reply(NACK_NO_REQUEST)
             return
         # Note: as no knowledge about the namespace, use files' name.
-        result_file = os.path.join(self.results_path, data_name.toUri())
+        result_file = os.path.join(self.results_path, data_name.toUri()[1:])
         if os.path.exists(result_file):
             # TODO: segmentation
             with open(result_file, "rb") as f:
@@ -141,23 +154,19 @@ class Server:
 
     def negative_reply(self, code, retry_after=0):
         # TODO: Reply with Application NACK
-        pass
+        print("Negative reply", code)
 
     def _result_set_prefix_match(self, data_name):
-        for key, value in self.status_set:
-            if data_name.isPrefixOf(key):
+        for key, value in self.status_set.items():
+            if key.isPrefixOf(data_name):
                 return key, value
         return None, None
-
-    def on_status_interest(self, prefix, interest, face, interest_filter_id, filter_obj):
-        # type: (Name, Interest, Face, int, InterestFilter) -> None
-        # DO NOTHING
-        pass
 
     def on_payload(self, data):
         # type: (Data) -> None
         for op in self.status_set[data.name].operations.components:
             model_name = op.model.decode("utf-8")
+            # TODO: Use an on-server database, but not to repeat calculation
             if model_name == "deeplab":
                 ret = self.deeplab_manager.send(DeepLabRequest(data.name.toUri()[1:],
                                                                "img.jpg",

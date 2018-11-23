@@ -33,5 +33,5 @@ message SegmentParameterMessage {
     required Operations operations = 222;
   }
 
-  required SegmentParameter Segment_parameter = 210;
+  required SegmentParameter segment_parameter = 210;
 }
