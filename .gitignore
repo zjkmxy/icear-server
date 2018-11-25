@@ -126,3 +126,6 @@ checkpoint
 # Network server
 upload
 results
+
+# Database file
+*.db/

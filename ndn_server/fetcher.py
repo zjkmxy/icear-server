@@ -1,15 +1,15 @@
 from pyndn import Face, Name, Interest, Data
 from pyndn.security import KeyChain
-import os.path
+from storage import Storage
 
 
 class Fetcher:
-    def __init__(self, keychain, on_payload, upload_path):
-        # type: (KeyChain, function, str) -> None
+    def __init__(self, keychain, on_payload, storage):
+        # type: (KeyChain, function, Storage) -> None
         self.face = None
         self.keychain = keychain
         self.on_payload = on_payload
-        self.upload_path = upload_path
+        self.storage = storage
 
     def network_start(self, face):
         # type: (Face) -> None
@@ -38,9 +38,10 @@ class Fetcher:
         # type: (Interest, Data) -> None
         # TODO: segmentation
         # Save data to file
-        print("On img.jpg", data.name)
-        file_path = os.path.join(self.upload_path, data.name.toUri()[1:])
-        os.makedirs(file_path, exist_ok=True)
-        with open(os.path.join(file_path, "img.jpg"), "wb") as f:
-            f.write(data.content.toBytes())
-        self.on_payload(data)
+        print("On data", data.name)
+        # file_path = os.path.join(self.upload_path, data.name.toUri()[1:])
+        # os.makedirs(file_path, exist_ok=True)
+        # with open(os.path.join(file_path, "img.jpg"), "wb") as f:
+        #     f.write(data.content.toBytes())
+        self.storage.put(data.name, data.content.toBytes())
+        self.on_payload(data.name)

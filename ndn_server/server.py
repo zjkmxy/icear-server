@@ -7,8 +7,8 @@ from fst import Fst, FstRequest
 import logging
 from .fetcher import Fetcher
 from .messages.request_msg_pb2 import OpComponent, SegmentParameterMessage
-import os
 from copy import copy
+from storage import Storage
 
 DISCONN_RETRY_TIME = 2.0
 SERVER_PREFIX = "icear-server"
@@ -50,8 +50,8 @@ class Status:
 
 
 class Server:
-    def __init__(self, deeplab_manager, fst_manager, root_path):
-        # type: (DeepLab, Fst, str) -> None
+    def __init__(self, deeplab_manager, fst_manager, root_path, storage):
+        # type: (DeepLab, Fst, str, Storage) -> None
         self.face = None
         self.keychain = KeyChain()
         self.running = False
@@ -59,12 +59,13 @@ class Server:
 
         self.deeplab_manager = deeplab_manager
         self.fst_manager = fst_manager
+        self.storage = storage
         deeplab_manager.on_finished = self.on_process_finished
         fst_manager.on_finished = self.on_process_finished
 
-        self.upload_path = os.path.join(root_path, "upload")
-        self.fetcher = Fetcher(self.keychain, self.on_payload, self.upload_path)
-        self.results_path = os.path.join(root_path, "results")
+        # self.upload_path = os.path.join(root_path, "upload")
+        self.fetcher = Fetcher(self.keychain, self.on_payload, self.storage)
+        # self.results_path = os.path.join(root_path, "results")
 
         self.command_filter_id = 0
         self.result_filter_id = 0
@@ -139,14 +140,12 @@ class Server:
         if key is None:
             self.negative_reply(NACK_NO_REQUEST)
             return
-        # Note: as no knowledge about the namespace, use files' name.
-        result_file = os.path.join(self.results_path, data_name.toUri()[1:])
-        if os.path.exists(result_file):
+        result = self.storage.get(data_name)
+        if result is not None:
             # TODO: segmentation
-            with open(result_file, "rb") as f:
-                data = Data(interest.name)
-                data.content = Blob(bytearray(f.read()))
-                self.face.putData(data)
+            data = Data(interest.name)
+            data.content = Blob(bytearray(result))
+            self.face.putData(data)
             return
         # TODO: Check the status
         self.negative_reply(NACK_RETRY_AFTER, stat.estimated_time)
@@ -162,20 +161,23 @@ class Server:
                 return key, value
         return None, None
 
-    def on_payload(self, data):
-        # type: (Data) -> None
-        for op in self.status_set[data.name].operations.components:
+    def on_payload(self, data_name):
+        # type: (Name) -> None
+        for op in self.status_set[data_name].operations.components:
             model_name = op.model.decode("utf-8")
-            # TODO: Use an on-server database, but not to repeat calculation
+            result_name = Name(data_name).append(model_name)
+            if self.storage.exists(result_name):
+                print("Result exists:" + result_name.toUri())
+                continue
             if model_name == "deeplab":
-                ret = self.deeplab_manager.send(DeepLabRequest(data.name.toUri()[1:],
-                                                               "img.jpg",
-                                                               "deeplab.png"))
+                ret = self.deeplab_manager.send(DeepLabRequest(data_name.toUri()[1:],
+                                                               data_name.toUri(),
+                                                               result_name))
             else:
-                ret = self.fst_manager.send(FstRequest(data.name.toUri()[1:],
+                ret = self.fst_manager.send(FstRequest(data_name.toUri()[1:],
                                                        model_name,
-                                                       "img.jpg",
-                                                       model_name + ".png"))
+                                                       data_name.toUri(),
+                                                       result_name))
             op.flags = FLAG_PROCESSING if ret else FLAG_FAILED
 
     def on_process_finished(self, name_str, model_name):

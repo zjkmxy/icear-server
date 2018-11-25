@@ -1,4 +1,4 @@
-import os, errno
+import os, errno, io
 from queue import Queue
 from threading import Thread
 import numpy as np
@@ -15,15 +15,16 @@ class DeepLabRequest:
 
 
 class DeepLab:
-    def __init__(self, gpu_ids, root_path, img_mean):
+    def __init__(self, gpu_ids, root_path, img_mean, storage):
         self.on_finished = None
+        self.storage = storage
 
         self.img_mean = np.array(img_mean, dtype=np.float32)
         self.root_path = root_path
-        self.upload_path = os.path.join(root_path, "upload")
-        self.result_path = os.path.join(root_path, "results")
-        os.makedirs(self.upload_path, exist_ok=True)
-        os.makedirs(self.result_path, exist_ok=True)
+        # self.upload_path = os.path.join(root_path, "upload")
+        # self.result_path = os.path.join(root_path, "results")
+        # os.makedirs(self.upload_path, exist_ok=True)
+        # os.makedirs(self.result_path, exist_ok=True)
         self.weights_model_path = os.path.join(root_path, "deeplab_resnet.ckpt")
         if not os.path.exists(self.weights_model_path):
             raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), self.weights_model_path)
@@ -46,6 +47,16 @@ class DeepLab:
 
     def join_all(self):
         self.request_queue.join()
+
+    def load_img(self, path):
+        jpg_data = self.storage.get(path)
+        jpg_tensor = tf.placeholder(dtype=tf.string)
+        return jpg_tensor, jpg_data
+
+    def save_img(self, path, img):
+        ret = io.BytesIO()
+        img.save(ret, format='PNG')
+        self.storage.put(path, ret.getvalue())
 
 
 class _Worker(Thread):
@@ -70,10 +81,12 @@ class _Worker(Thread):
 
     def _process(self, req):
         # type: (DeepLabRequest) -> None
-        img_path = os.path.join(self.manager.upload_path, req.prefix, req.input_file_name)
-        ret_path = os.path.join(self.manager.result_path, req.prefix, req.result_file_name)
+        # img_path = os.path.join(self.manager.upload_path, req.prefix, req.input_file_name)
+        # ret_path = os.path.join(self.manager.result_path, req.prefix, req.result_file_name)
         # Prepare image.
-        img_rgb = tf.image.decode_jpeg(tf.read_file(img_path), channels=3)
+        # img_rgb = tf.image.decode_jpeg(tf.read_file(img_path), channels=3)
+        jpg_tensor, jpg_data = self.manager.load_img(req.input_file_name)
+        img_rgb = tf.image.decode_jpeg(jpg_tensor, channels=3)
         # Convert RGB to BGR.
         img_r, img_g, img_b = tf.split(img_rgb, 3, axis=2)
         img_bgr = tf.cast(tf.concat([img_b, img_g, img_r], 2), dtype=tf.float32)
@@ -112,10 +125,11 @@ class _Worker(Thread):
             self.initialized = True
 
         # Perform inference.
-        preds = self.sess.run(pred)
+        preds = self.sess.run(pred, feed_dict={jpg_tensor: jpg_data})
 
         msk = decode_labels(preds)
         im = Image.fromarray(msk[0])
-        mask_path = ret_path
-        os.makedirs(os.path.dirname(mask_path), exist_ok=True)
-        im.save(mask_path)
+        mask_path = req.result_file_name
+        # os.makedirs(os.path.dirname(mask_path), exist_ok=True)
+        # im.save(mask_path)
+        self.manager.save_img(mask_path, im)

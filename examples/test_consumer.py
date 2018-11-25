@@ -18,7 +18,7 @@ def main():
     face.setCommandSigningInfo(keychain, keychain.getDefaultCertificateName())
     running = True
 
-    interest = Interest("/icear-server/result/example-data/2/deeplab.png")
+    interest = Interest("/icear-server/result/example-data/2/deeplab")
 
     def on_data(_, data):
         # type: (Interest, Data) -> None
