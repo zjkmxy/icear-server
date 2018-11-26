@@ -1,6 +1,9 @@
-from pyndn import Face, Name, Interest, Data
+from pyndn import Face, Name, Interest, Data, Blob
 from pyndn.security import KeyChain
 from storage import Storage
+from pycnl import Namespace
+from pycnl.generalized_object import GeneralizedObjectHandler, ContentMetaInfo
+from functools import partial
 
 
 class Fetcher:
@@ -25,14 +28,9 @@ class Fetcher:
         for frame_id in range(start_frame, end_frame + 1):
             name = Name(prefix).append(str(frame_id))
             print("Fetching", name.toUri())
-            interest = Interest(name)
-            interest.setCanBePrefix(False)
-            def on_timeout(*params):
-                print("Timeout", params)
-            def on_nack(interest, nack):
-                print("Nack", interest.name.toUri())
-                print(nack.getReason(), nack.getOtherReasonCode())
-            self.face.expressInterest(interest, self.on_data, on_timeout, on_nack)
+            frame_namespace = Namespace(name)
+            frame_namespace.setFace(self.face)
+            frame_namespace.setHandler(GeneralizedObjectHandler(partial(self.on_generalized_obj, name))).objectNeeded()
 
     def on_data(self, _, data):
         # type: (Interest, Data) -> None
@@ -45,3 +43,9 @@ class Fetcher:
         #     f.write(data.content.toBytes())
         self.storage.put(data.name, data.content.toBytes())
         self.on_payload(data.name)
+
+    def on_generalized_obj(self, name, _meta_info, obj):
+        # type: (Name, ContentMetaInfo, Blob) -> None
+        self.storage.put(name, obj.toBytes())
+        self.on_payload(name)
+        pass

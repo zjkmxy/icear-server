@@ -22,13 +22,15 @@ def main():
     fst_inst = Fst(range(1), root_path, IMG_SHAPE, storage)
     server = Server(deeplab_inst, fst_inst, root_path, storage)
 
-    server.run()
-
-    deeplab_inst.join_all()
-    fst_inst.join_all()
-    deeplab_inst.shutdown()
-    fst_inst.shutdown()
-
+    try:
+        server.run()
+    except KeyboardInterrupt:
+        pass
+    finally:
+        deeplab_inst.join_all()
+        fst_inst.join_all()
+        deeplab_inst.shutdown()
+        fst_inst.shutdown()
 
 if __name__ == "__main__":
     main()
