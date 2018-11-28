@@ -1,23 +1,26 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-import os, sys
-from deeplab import DeepLab, DeepLabRequest
-from fst import Fst, FstRequest
-from ndn_server.server import Server, Status
-from pyndn import Name, Data, Blob
-from ndn_server.messages.request_msg_pb2 import OpComponent, Operations
-from storage import Storage
+import os, sys, logging
+from deeplab import DeepLab
+from fst import Fst
+from ndn_server.server import Server
+from storage import RocksdbStorage
 
 
+DATABASE_NAME = "server_cache.db"
 IMG_MEAN = (104.00698793, 116.66876762, 122.67891434)
 IMG_SHAPE = (236, 420, 3)
 
 
 def main():
+    logging.basicConfig(format='[%(asctime)s]%(levelname)s:%(message)s',
+                        datefmt='%Y-%m-%d %H:%M:%S',
+                        level=logging.INFO)
+
     root_path = os.path.dirname(sys.argv[0])
 
-    storage = Storage()
+    storage = RocksdbStorage(os.path.join(root_path, DATABASE_NAME))
     deeplab_inst = DeepLab(range(1), root_path, IMG_MEAN, storage)
     fst_inst = Fst(range(1), root_path, IMG_SHAPE, storage)
     server = Server(deeplab_inst, fst_inst, root_path, storage)

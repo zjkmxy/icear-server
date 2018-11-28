@@ -35,3 +35,12 @@ message SegmentParameterMessage {
 
   required SegmentParameter segment_parameter = 210;
 }
+
+message ServerResponseMessage {
+  message ServerResponse {
+    required uint32 ret_code = 230;
+    optional uint32 retry_after = 231;
+  }
+
+  required ServerResponse server_response = 210;
+}

@@ -33,7 +33,6 @@ def main():
 
     def on_data(_, data):
         # type: (Interest, Data) -> None
-        # This won't hit
         print(data.name.toUri())
         print(data.content.toBytes())
 
