@@ -19,10 +19,6 @@ message Operations {
   repeated OpComponent components = 203;
 }
 
-message Status {
-  required uint32 retry_after = 204;
-}
-
 // Protobuf has no "outer" message type, so we need to put the TLV XXX
 // message inside an outer "typeless" XXXMessage.
 message SegmentParameterMessage {
@@ -42,5 +38,5 @@ message ServerResponseMessage {
     optional uint32 retry_after = 231;
   }
 
-  required ServerResponse server_response = 210;
+  required ServerResponse server_response = 211;
 }

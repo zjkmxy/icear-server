@@ -12,6 +12,8 @@ from pyndn.encoding import ProtobufTlv
 from pyndn.util.common import Common
 from pycnl import Namespace
 from pycnl.generalized_object import GeneralizedObjectHandler
+from PIL import Image
+import io
 
 def dump(*list):
     result = ""
@@ -28,12 +30,14 @@ def main():
     prefixNamespace.setFace(face)
 
     enabled = [True]
+    img = [None]
     def onGeneralizedObject(contentMetaInfo, obj):
         data = obj.toBytes()
         dump("Got generalized object, content-type",
              contentMetaInfo.getContentType(), ":", repr(data))
         print(len(data))
         enabled[0] = False
+        img[0] = data
 
     goh = GeneralizedObjectHandler(onGeneralizedObject)
     prefixNamespace.setHandler(goh).objectNeeded()
@@ -44,4 +48,6 @@ def main():
         # We need to sleep for a few milliseconds so we don't use 100% of the CPU.
         time.sleep(0.01)
 
+    image = Image.open(io.BytesIO(img[0]))
+    image.show()
 main()

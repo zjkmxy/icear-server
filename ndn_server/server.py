@@ -183,12 +183,12 @@ class Server:
                 logging.info("Request processed: %s", data_name)
                 status = ResultStatus(prefix.toUri(), model_name, Common.getNowMilliseconds())
                 status.status = STATUS_FETCHING
-                status.estimated_time = status.proecess_start_time + 10000.0
+                status.estimated_time = status.proecess_start_time + 10.0
                 self.save_status(data_name, status)
         # TODO: Server should check whether data is here, not fetcher
         self.fetcher.fetch_data(prefix, parameter.start_frame, parameter.end_frame)
 
-        self.nodata_reply(interest.name, RET_OK, 10000.0)
+        self.nodata_reply(interest.name, RET_OK, 10.0)
 
     # def on_result_interest(self, _namespace, needed_obj, _id):
     #     # type: (Namespace, Namespace, int) -> bool
@@ -215,7 +215,7 @@ class Server:
             seg_no = -1
             result = self.storage.get(data_name.getPrefix(-1))
         else:
-            seg_no = None
+            seg_no = 0
             result = self.storage.get(data_name)
 
         if result is not None:
@@ -280,7 +280,7 @@ class Server:
             metainfo.freshnessPeriod = int(retry_after / 10)
             msg.server_response.retry_after = int(retry_after)
         else:
-            metainfo.freshnessPeriod = 60000
+            metainfo.freshnessPeriod = 600
 
         data.setMetaInfo(metainfo)
         data.setContent(ProtobufTlv.encode(msg))

@@ -6,10 +6,12 @@ import os, sys, time
 root_path = os.path.join(os.path.dirname(sys.argv[0]), "..")
 sys.path.append(root_path)
 
-from pyndn import Name, Data, Blob, Interest, Face, InterestFilter
+from pyndn import Name, Data, Blob, Interest, Face, InterestFilter, ContentType
 from pyndn.security import KeyChain
 from pyndn.encoding import ProtobufTlv
 from ndn_server.messages.request_msg_pb2 import SegmentParameterMessage
+from PIL import Image
+import io
 
 
 def main():
@@ -17,26 +19,21 @@ def main():
     keychain = KeyChain()
     face.setCommandSigningInfo(keychain, keychain.getDefaultCertificateName())
     running = True
+    img = None
 
-    interest = Interest("/icear-server/calc")
-    param_msg = SegmentParameterMessage()
-    param_msg.segment_parameter.name.component.append(bytes("example-data", "utf-8"))
-    param_msg.segment_parameter.start_frame = 2
-    param_msg.segment_parameter.end_frame = 3
-    op = param_msg.segment_parameter.operations.components.add()
-    op.model = bytes("deeplab", "utf-8")
-    op.flags = 0
-    op = param_msg.segment_parameter.operations.components.add()
-    op.model = bytes("la_muse", "utf-8")
-    op.flags = 0
-    interest.name.append(ProtobufTlv.encode(param_msg))
+    interest = Interest("/icear-server/result/example-data/2/deeplab")
+    interest.mustBeFresh = True
 
     def on_data(_, data):
         # type: (Interest, Data) -> None
-        nonlocal running
+        nonlocal running, img
         print(data.name.toUri())
         print(data.content.toBytes())
         running = False
+        if data.metaInfo.type == ContentType.NACK:
+            print("NACK")
+        else:
+            img = data.content.toBytes()
 
     face.expressInterest(interest, on_data)
 
@@ -45,6 +42,10 @@ def main():
         time.sleep(0.01)
 
     face.shutdown()
+
+    if img:
+        image = Image.open(io.BytesIO(img))
+        image.show()
 
 if __name__ == "__main__":
     main()
