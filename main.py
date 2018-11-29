@@ -1,16 +1,12 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+from config import *
 import os, sys, logging
 from deeplab import DeepLab
 from fst import Fst
 from ndn_server.server import Server
 from storage import RocksdbStorage
-
-
-DATABASE_NAME = "server_cache.db"
-IMG_MEAN = (104.00698793, 116.66876762, 122.67891434)
-IMG_SHAPE = (236, 420, 3)
 
 
 def main():

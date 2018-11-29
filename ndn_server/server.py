@@ -1,3 +1,4 @@
+from config import *
 import time
 from pyndn import Face, Name, Interest, InterestFilter, Data, Blob, MetaInfo, ContentType
 from pyndn.security import KeyChain
@@ -14,12 +15,6 @@ from pycnl.generalized_object import ContentMetaInfo
 from pyndn.util.common import Common
 import struct
 
-DISCONN_RETRY_TIME = 2.0
-SERVER_PREFIX = "icear-server"
-COMMAND_PREFIX = "calc"
-RESULT_PREFIX = "result"
-STATUS_PREFIX = "status"
-OPERATIONS_SET = ["deeplab", "la_muse", "rain_princess", "scream", "udnie", "wave", "wreck"]
 
 # Request succeeded
 RET_OK = 200
@@ -98,14 +93,18 @@ class Server:
         self.command_filter_id = 0
         self.result_filter_id = 0
 
+        self.operations_set = self.fst_manager.get_models() | {"deeplab"}
         # Status set, one item per frame
         # TODO: Start with unfinished tasks
         # self.status_set = {}
 
     def save_status(self, name, status):
+        # type: (Name, ResultStatus) -> None
+        """Save status to database"""
         self.storage.put(Name(STATUS_PREFIX).append(name), status.to_bytes())
 
     def load_status(self, name):
+        """Load status from database"""
         # Get exact prefix to data
         if name[-1] == Name.Component("_meta") or name[-1].isSegment():
             name = name[:-1]
@@ -170,7 +169,7 @@ class Server:
         # Check operations
         for op in parameter.operations.components:
             model_name = op.model.decode("utf-8")
-            if model_name not in OPERATIONS_SET:
+            if model_name not in self.operations_set:
                 self.nodata_reply(interest.name, RET_NOT_SUPPORTED)
                 return
 
@@ -209,13 +208,16 @@ class Server:
             return True
 
         if data_name[-1].isSegment():
+            # Segment no suffix
             seg_no = data_name[-1].toSegment()
             result = self.storage.get(data_name.getPrefix(-1))
         elif data_name[-1] == Name("_meta")[0]:
+            # MetaInfo suffix
             seg_no = -1
             result = self.storage.get(data_name.getPrefix(-1))
         else:
-            seg_no = 0
+            # No suffix
+            seg_no = None
             result = self.storage.get(data_name)
 
         if result is not None:
@@ -226,6 +228,7 @@ class Server:
             # metainfo.setFinalBlockId(segment_cnt - 1) # WHY this doesn't work?
             metainfo.setFinalBlockId(Name().appendSegment(segment_cnt - 1)[0])
             if segment_cnt > 1 and seg_no is None:
+                # Fetch segmented data with no suffix will get only first segment
                 seg_no = 0
                 data_name.appendSequenceNumber(seg_no)
 
@@ -241,15 +244,18 @@ class Server:
                 data.content = content_metainfo.wireEncode()
             else:
                 # data
-                if seg_no < segment_cnt:
-                    if segment_cnt > 1:
+                if segment_cnt > 1:
+                    # Segmented
+                    if seg_no < segment_cnt:
                         start_offset = seg_no * self.segment_size
                         end_offset = start_offset + self.segment_size
                         data.content = Blob(bytearray(result[start_offset:end_offset]))
                     else:
-                        data.content = Blob(bytearray(result))
+                        data.content = None
                 else:
-                    data.content = None
+                    # No segmentation
+                    data.content = Blob(bytearray(result))
+
             self.keychain.sign(data)
             face.putData(data)
             return True
@@ -262,7 +268,6 @@ class Server:
             else:
                 self.nodata_reply(interest.name, RET_RETRY_AFTER, status.estimated_time - Common.getNowMilliseconds())
             return True
-
 
     def nodata_reply(self, name, code, retry_after=0.0):
         # type: (Name, int, float) -> None
@@ -290,7 +295,7 @@ class Server:
 
     def on_payload(self, frame_name):
         # type: (Name) -> None
-        for model in OPERATIONS_SET:
+        for model in self.operations_set:
             data_name = Name(frame_name).append(model)
             status = self.load_status(data_name)
             if status is None:

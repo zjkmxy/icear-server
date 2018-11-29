@@ -1,3 +1,4 @@
+from config import *
 import os, errno
 from queue import Queue
 from threading import Thread
@@ -30,7 +31,7 @@ class Fst:
         # self.result_path = os.path.join(root_path, "results")
         # os.makedirs(self.upload_path, exist_ok=True)
         # os.makedirs(self.result_path, exist_ok=True)
-        self.models_dir = os.path.join(root_path, "ce-models")
+        self.models_dir = os.path.join(root_path, FST_MODEL_PATH)
         if not os.path.exists(self.models_dir):
             raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), self.models_dir)
 
@@ -79,6 +80,8 @@ class Fst:
         img = np.clip(img, 0, 255).astype(np.uint8)
         self.storage.put(path, imageio.imwrite(imageio.RETURN_BYTES, img, "PNG-PIL"))
 
+    def get_models(self):
+        return set(self.models.keys())
 
 class _Worker(Thread):
     def __init__(self, request_queue, gpu_id, manager):

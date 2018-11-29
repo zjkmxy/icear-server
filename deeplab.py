@@ -1,3 +1,4 @@
+from config import *
 import os, errno, io
 from queue import Queue
 from threading import Thread
@@ -25,7 +26,7 @@ class DeepLab:
         # self.result_path = os.path.join(root_path, "results")
         # os.makedirs(self.upload_path, exist_ok=True)
         # os.makedirs(self.result_path, exist_ok=True)
-        self.weights_model_path = os.path.join(root_path, "deeplab_resnet.ckpt")
+        self.weights_model_path = os.path.join(root_path, DEEPLAB_MODEL_PATH)
         if not os.path.exists(self.weights_model_path):
             raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), self.weights_model_path)
 
