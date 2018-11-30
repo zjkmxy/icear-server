@@ -1,8 +1,11 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-from config import *
 import os, sys, logging
+
+sys.path.append(os.path.join(os.path.dirname(sys.argv[0]), "PyCNL", "python"))
+
+from config import *
 from deeplab import DeepLab
 from fst import Fst
 from ndn_server.server import Server

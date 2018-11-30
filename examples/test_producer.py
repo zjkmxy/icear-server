@@ -5,6 +5,7 @@ import os, sys, time
 
 root_path = os.path.join(os.path.dirname(sys.argv[0]), "..")
 sys.path.append(root_path)
+sys.path.append(os.path.join(root_path, "PyCNL", "python"))
 
 from pyndn import Name, Data, Blob, Face, MetaInfo
 from pyndn.security import KeyChain

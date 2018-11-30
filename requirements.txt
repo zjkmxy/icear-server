@@ -1,0 +1,13 @@
+imageio==2.4.1
+typing==3.6.6
+pydensecrf==1.0rc3
+python_rocksdb==0.6.9
+requests==2.20.1
+moviepy==0.2.3.5
+numpy==1.15.3
+PyNDN==2.9b1
+scipy==1.1.0
+future==0.17.1
+Pillow==5.3.0
+protobuf==3.6.1
+tensorflow==1.12.0

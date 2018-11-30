@@ -10,6 +10,14 @@ import logging
 class Fetcher:
     """
     Fetch frames and store them into database.
+
+    TO-DO:
+    At least we need: congestion control, retransmission, on_nack, on_timeout
+    Some are controlled by Namespace currently.
+    But obviously pour all requests out is WRONG.
+
+    NOTE:
+    PyCNL is unstable now. I want to abandon this.
     """
     def __init__(self, keychain, on_payload, storage):
         # type: (KeyChain, function, IStorage) -> None
@@ -29,9 +37,6 @@ class Fetcher:
 
     def fetch_data(self, prefix, start_frame, end_frame):
         # type: (Name, int, int) -> None
-        # TODO: congestion control, retransmission, on_nack, on_timeout
-        # Some are controlled by Namespace currently.
-        # But obviously pour all requests out is WRONG.
         for frame_id in range(start_frame, end_frame + 1):
             name = Name(prefix).append(str(frame_id))
 

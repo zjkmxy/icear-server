@@ -1,0 +1,3 @@
+[submodule "PyCNL"]
+	path = PyCNL
+	url = https://github.com/named-data/PyCNL.git
