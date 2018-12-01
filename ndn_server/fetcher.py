@@ -61,11 +61,12 @@ class Fetcher:
 
     New design uses coroutines to simplify the implementation.
     """
-    def __init__(self, keychain, on_payload, storage):
-        # type: (KeyChain, function, IStorage) -> None
+    def __init__(self, keychain, on_payload, storage, on_failure):
+        # type: (KeyChain, function, IStorage, function) -> None
         self.face = None
         self.keychain = keychain
         self.on_payload = on_payload
+        self.on_failure_callback = on_failure
         self.storage = storage
         self.semaphore = Semaphore(FETCHER_MAX_INTEREST_IN_FLIGHT)
         self.task_list = []
@@ -84,24 +85,16 @@ class Fetcher:
         # Maybe we can remove pending interests here.
         self.task_list = []
 
-    def fetch_data(self, prefix, start_frame, end_frame):
-        for frame_id in range(start_frame, end_frame + 1):
-            name = Name(prefix).append(str(frame_id))
-
-            # Feed server with existing data
-            if self.storage.exists(name):
-                self.on_payload(name)
-                return
-
-            Task.insert(self.task_list,
-                        fetch_gobject(self.face, name, self.on_generalized_obj, self.on_failure, self.semaphore))
+    def fetch_data(self, name):
+        Task.insert(self.task_list,
+                    fetch_gobject(self.face, name, self.on_generalized_obj, self.on_failure, self.semaphore))
 
     def on_generalized_obj(self, name, meta_info, obj):
         # type: (Name, ContentMetaInfo, Blob) -> None
-        logging.info("Fetch succeed: {}".format(name))
         self.storage.put(Name(name).append("_meta"), meta_info.wireEncode().toBytes())
         self.storage.put(name, obj.toBytes())
         self.on_payload(name)
 
     def on_failure(self, name):
-        logging.error("Fail on fetching: {}".format(name))
+        if self.on_failure_callback:
+            self.on_failure_callback(name)

@@ -28,6 +28,8 @@ RET_NOT_SUPPORTED = 401
 RET_EXECUTION_FAILED = 402
 # Can not fetch specified frame
 RET_NO_INPUT = 403
+# Malformed command
+RET_MALFORMED_COMMAND = 404
 
 # No flag
 STATUS_NONE = 0
@@ -88,7 +90,7 @@ class Server:
         deeplab_manager.on_finished = self.on_process_finished
         fst_manager.on_finished = self.on_process_finished
 
-        self.fetcher = Fetcher(self.keychain, self.on_payload, self.storage)
+        self.fetcher = Fetcher(self.keychain, self.on_payload, self.storage, self.on_fetch_fail)
 
         self.command_filter_id = 0
         self.result_filter_id = 0
@@ -161,7 +163,12 @@ class Server:
     def on_command(self, _prefix, interest, _face, _interest_filter_id, _filter_obj):
         # type: (Name, Interest, Face, int, InterestFilter) -> None
         parameter_msg = SegmentParameterMessage()
-        ProtobufTlv.decode(parameter_msg, interest.name[-1].getValue())
+        try:
+            ProtobufTlv.decode(parameter_msg, interest.name[-1].getValue())
+        except ValueError:
+            self.nodata_reply(interest.name, RET_MALFORMED_COMMAND)
+            return
+
         parameter = parameter_msg.segment_parameter
         prefix = Name()
         for compo in parameter.name.component:
@@ -185,8 +192,14 @@ class Server:
                 status.status = STATUS_FETCHING
                 status.estimated_time = status.proecess_start_time + 10.0
                 self.save_status(data_name, status)
-        # TODO: Server should check whether data is here, not fetcher
-        self.fetcher.fetch_data(prefix, parameter.start_frame, parameter.end_frame)
+
+        # Check data existence and trigger fetching process
+        for frame_id in range(parameter.start_frame, parameter.end_frame + 1):
+            frame_name = Name(prefix).append(str(frame_id))
+            if self.storage.exists(frame_name):
+                self.on_payload(frame_name)
+            else:
+                self.fetcher.fetch_data(frame_name)
 
         self.nodata_reply(interest.name, RET_OK, 10.0)
 
@@ -259,7 +272,7 @@ class Server:
             # Data are not ready
             if status.status == STATUS_NO_INPUT:
                 self.nodata_reply(interest.name, RET_NO_INPUT)
-            if status.status == STATUS_FAILED:
+            elif status.status == STATUS_FAILED:
                 self.nodata_reply(interest.name, RET_EXECUTION_FAILED)
             else:
                 self.nodata_reply(interest.name, RET_RETRY_AFTER, status.estimated_time - Common.getNowMilliseconds())
@@ -331,3 +344,13 @@ class Server:
         content_metainfo.setTimestamp(status.end_time)
         content_metainfo.setHasSegments(True)
         self.storage.put(meta_name, content_metainfo.wireEncode().toBytes())
+
+    def on_fetch_fail(self, frame_name):
+        logging.error("Fail to fetch: {}".format(frame_name))
+        for model in self.operations_set:
+            data_name = Name(frame_name).append(model)
+            status = self.load_status(data_name)
+            if status is None:
+                continue
+            status.status = STATUS_NO_INPUT
+            self.save_status(data_name, status)

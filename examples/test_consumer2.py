@@ -21,7 +21,7 @@ def main():
     running = True
     img = None
 
-    interest = Interest("/icear-server/result/example-data/2/deeplab")
+    interest = Interest(Name("/icear-server/result/example-data/2/deeplab"))
     interest.mustBeFresh = True
 
     def on_data(_, data):
