@@ -124,6 +124,7 @@ class Server:
                 logging.info("Starting...")
                 while self.running and not self._restart:
                     self.face.processEvents()
+                    self.fetcher.process_tasks()
                     time.sleep(0.01)
             except ConnectionRefusedError:
                 logging.warning("Connection refused. Retry in %ss.", DISCONN_RETRY_TIME)
@@ -236,12 +237,7 @@ class Server:
             data.setMetaInfo(metainfo)
             if seg_no == -1:
                 # _meta
-                # TODO: I think we shouldn't produce meta here?
-                content_metainfo = ContentMetaInfo()
-                content_metainfo.setContentType("png")
-                content_metainfo.setTimestamp(status.end_time)
-                content_metainfo.setHasSegments(True)
-                data.content = content_metainfo.wireEncode()
+                data.content = self.storage.get(data_name)
             else:
                 # data
                 if segment_cnt > 1:
@@ -323,7 +319,15 @@ class Server:
         data_name = Name(name_str).append(model_name)
         logging.info("Process finished: %s", data_name.toUri())
         status = self.load_status(data_name)
-        if status is not None:
-            status.end_time = Common.getNowMilliseconds()
-            status.status = STATUS_SUCCEED
+        if status is None:
+            logging.fatal("Database broken.")
+            raise RuntimeError()
+        status.end_time = Common.getNowMilliseconds()
+        status.status = STATUS_SUCCEED
 
+        meta_name = Name(data_name).append("_meta")
+        content_metainfo = ContentMetaInfo()
+        content_metainfo.setContentType("png")
+        content_metainfo.setTimestamp(status.end_time)
+        content_metainfo.setHasSegments(True)
+        self.storage.put(meta_name, content_metainfo.wireEncode().toBytes())

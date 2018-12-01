@@ -62,3 +62,6 @@ class Fetcher:
         # type: (Name, ContentMetaInfo, Blob) -> None
         self.storage.put(name, obj.toBytes())
         self.on_payload(name)
+
+    def process_tasks(self):
+        pass

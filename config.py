@@ -29,3 +29,15 @@ DEEPLAB_MODEL_PATH = "deeplab_resnet.ckpt"
 
 # The folder of model files for FST
 FST_MODEL_PATH = "ce-models"
+
+# Max number of attempts
+FETCHER_MAX_ATTEMPT_NUMBER = 3
+
+# Milliseconds between two trial
+FETCHER_RETRY_INTERVAL = 1000.0
+
+# Refuse too large data
+FETCHER_FINAL_BLOCK_ID = 100
+
+# Max number of interest packets in flight
+FETCHER_MAX_INTEREST_IN_FLIGHT = 10
