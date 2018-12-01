@@ -6,7 +6,7 @@ import os, sys, time
 root_path = os.path.join(os.path.dirname(sys.argv[0]), "..")
 sys.path.append(root_path)
 
-from pyndn import Name, Data, Blob, Interest, Face, InterestFilter
+from pyndn import Name, Data, Blob, Interest, Face, InterestFilter, NetworkNack
 from pyndn.security import KeyChain
 from pyndn.encoding import ProtobufTlv
 from ndn_server.messages.request_msg_pb2 import SegmentParameterMessage
@@ -18,7 +18,9 @@ def main():
     face.setCommandSigningInfo(keychain, keychain.getDefaultCertificateName())
     running = True
 
-    interest = Interest("/icear-server/calc")
+    # The following line doesn't work sometimes
+    # interest = Interest("/icear-server/calc")
+    interest = Interest(Name("/icear-server/calc"))
     param_msg = SegmentParameterMessage()
     param_msg.segment_parameter.name.component.append(bytes("example-data", "utf-8"))
     param_msg.segment_parameter.start_frame = 2
@@ -31,6 +33,10 @@ def main():
     op.flags = 0
     interest.name.append(ProtobufTlv.encode(param_msg))
 
+    interest.mustBeFresh = True
+    interest.interestLifetimeMilliseconds = 4000.0
+    interest.setCanBePrefix(True)
+
     def on_data(_, data):
         # type: (Interest, Data) -> None
         nonlocal running
@@ -38,7 +44,19 @@ def main():
         print(data.content.toBytes())
         running = False
 
-    face.expressInterest(interest, on_data)
+    def on_timeout(_):
+        nonlocal running
+        print("Timeout")
+        running = False
+
+    def on_nack(_, nack):
+        # type: (Interest, NetworkNack) -> None
+        nonlocal running
+        print("NACK")
+        print(nack.getReason())
+        running = False
+
+    face.expressInterest(interest, on_data, on_timeout, on_nack)
 
     while running:
         face.processEvents()
