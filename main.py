@@ -18,11 +18,20 @@ def main():
                         level=logging.INFO)
 
     root_path = os.path.dirname(sys.argv[0])
+    if len(sys.argv) >= 2:
+        node_address = sys.argv[1]
+    else:
+        node_address = "localhost"
+
+    if len(sys.argv) >= 3:
+        node_port = int(sys.argv[2])
+    else:
+        node_port = 6363
 
     storage = RocksdbStorage(os.path.join(root_path, DATABASE_NAME))
     deeplab_inst = DeepLab(range(1), root_path, IMG_MEAN, storage)
     fst_inst = Fst(range(1), root_path, IMG_SHAPE, storage)
-    server = Server(deeplab_inst, fst_inst, root_path, storage)
+    server = Server(deeplab_inst, fst_inst, root_path, storage, node_address, node_port)
 
     try:
         server.run()
