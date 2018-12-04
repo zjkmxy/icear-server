@@ -34,32 +34,76 @@ make clean-db
 
 Protocol
 --------
-Command Interest:
+An overview is like this:
 ```text
-Name: <server-prefix>/calc/<Parameters>
+Requester     Server             Repo
+    |           |                 |
+    |  Command  |                 |
+    |---------->|                 |
+    | Response  |                 |
+    |<----------|    Interest     |
+    |           |---------------->|
+    |           |  Frame Data     |
+    |           |<----------------|
+    |        +--+----+            |
+    |        |Process| Interest   |
+    |        |       |----------->|
+    |        |  in   |Frame Data  |
+    |        |       |<-----------|
+    |        |  GPU  |   .....    |
+    |        +-------+            |
+    |        |       |            |
+    |        +-------+            |
+    |Interest|       |            |
+    |------->|       |            |
+    | Retry  +-------+            |
+    | After  |       |
+    |<-------+-------+
+    |        |       |
+    |        +--+----+
+    |           |
+    | Interest  |
+    |---------->|
+    |Result Data|
+    |<----------|
+```
+The requester sends an Interest to trigger the calculation on server.
+The server responses with an estimated time, and then starts fetching frames from the repo.
+Whenever a frame arrives, the server performs specified operations on it.
+GPU computations and frames fetching are done simultaneously.
+The requester can send Interests for results at any time.
+If the result is not ready yet, the server sends an application NACK back,
+carrying a RetryAfter field which is the estimated remaining time.
+If the result is ready, the server sends the data back.
+Frame data and result data can be segmented.
+
+
+Command Interests are in the following format:
+```text
+Name:
+  <server-prefix>/calc/<Parameters>
+
 Parameters format:
-name: The prefix of frames.
-start_frame: Start frame number.
-end_frame: End frame number.
-operations: List of operations.
+  name: The prefix of frames.
+  start_frame: Start frame number.
+  end_frame: End frame number.
+  operations: List of operations.
 ```
 
-The format of frames follows generalized-object:
+The name of frames follows generalized-object namespace:
 ```text
-MetaInfo: <frame-prefix>/<frame-no>/_meta
-FrameImageSegments: <frame-prefix>/<frame-no>/<segment-no>
+Names: 
+  Prefix: <frame-prefix>/<frame-no>
+  MetaInfo: <frame-prefix>/<frame-no>/_meta
+  FrameImageSegments: <frame-prefix>/<frame-no>/<segment-no>
 ```
 
-The format of results also follows generalized-object:
+The name of results also follows generalized-object:
 ```text
-MetaInfo: <server-prefix>/result/<frame-prefix>/<frame-no>/<operation>/_meta
-Segments: <server-prefix>/result/<frame-prefix>/<frame-no>/<operation>/<segment-no>
-```
-
-Results with a status code will be:
-```text
-RetCode: The status code.
-RetryAfter[optional]: Milliseconds estimated before operations are finished.
+Names:
+  Prefix: <server-prefix>/result/<frame-prefix>/<frame-no>/<operation>
+  MetaInfo: <server-prefix>/result/<frame-prefix>/<frame-no>/<operation>/_meta
+  Segments: <server-prefix>/result/<frame-prefix>/<frame-no>/<operation>/<segment-no>
 ```
 
 Results with status code can be sent in the following cases:
@@ -67,6 +111,12 @@ Results with status code can be sent in the following cases:
 1. A Data packet replying to a Command Interest.
 2. An application NACK replying to a result Interest. 
    In this case, the consumer must test if the reply is NACK or Data.
+```
+
+Results with a status code carry the following data:
+```text
+RetCode: The status code.
+RetryAfter[optional]: Milliseconds estimated before operations are finished.
 ```
 
 Result codes:
@@ -81,7 +131,20 @@ RET_EXECUTION_FAILED | 402 | The execution failed.
 RET_NO_INPUT | 403 | Cannot fetch specified frame.
 RET_MALFORMED_COMMAND | 404 | Malformed command.
 
-(To be continued...)
+TLV Type Encoding Number:
+
+Type | Number
+--- | ---
+Model | 200
+FLags | 201
+Operation | 203
+Start frame id | 220
+End frame id | 221
+Operations list | 222
+Command interest | 210
+Return code | 230
+Retry after | 231
+Response with code | 211
 
 Structure
 ---------
