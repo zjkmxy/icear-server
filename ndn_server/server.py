@@ -73,15 +73,13 @@ class ResultStatus:
 
 
 class Server:
-    def __init__(self, deeplab_manager, fst_manager, root_path, storage, node_address, node_port):
-        # type: (DeepLab, Fst, str, IStorage, str, int) -> None
+    def __init__(self, deeplab_manager, fst_manager, root_path, storage):
+        # type: (DeepLab, Fst, str, IStorage) -> None
         self.face = None
         self.keychain = KeyChain()
         # self.namespace = Namespace(Name(SERVER_PREFIX).append(RESULT_PREFIX), self.keychain)
         # self.namespace.addOnObjectNeeded(self.on_result_interest)
         self.segment_size = Face.getMaxNdnPacketSize() // 2
-        self.node_address = node_address
-        self.node_port = node_port
 
         self.running = False
         self._restart = False
@@ -121,7 +119,7 @@ class Server:
     def run(self):
         self.running = True
         while self.running:
-            self.face = Face(self.node_address, self.node_port)
+            self.face = Face()
             self._restart = False
             try:
                 self._network_start()
