@@ -118,7 +118,8 @@ checkpoint
 # Protobuf output
 *.pb.cc
 *.pb.h
-*_pb2.py
+# *_pb2.py
+# Some OSs are using an old version of protoc
 
 # Python
 *.pyc
