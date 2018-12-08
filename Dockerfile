@@ -1,4 +1,4 @@
-FROM nvidia/cuda:9.1-cudnn7-devel
+FROM nvidia/cuda:9.0-cudnn7-devel
 LABEL maintainer="Xinyu Ma <xinyuma@g.ucla.edu>"
 
 RUN mkdir -p /app
