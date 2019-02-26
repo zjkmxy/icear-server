@@ -7,6 +7,7 @@ Prerequisites
 - Required: Python 3.5 or later
 - Required: Protobuf
 - Required: Python packages in requirements.txt.
+- Required: [NFD](https://named-data.net/doc/NFD/current/INSTALL.html) should be installed and started.
 
 Usage
 -----
@@ -192,7 +193,6 @@ and receiving notifications via callbacks.
 
 TODOs
 -----
-- Dockerization (current Dockerfile cannot work).
 - Continue unfinished work after start.
 - Use Interest parameters.
 - Signature verification.
