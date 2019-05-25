@@ -9,7 +9,7 @@ from config import *
 from deeplab import DeepLab
 from fst import Fst
 from ndn_server.server import Server
-from storage import RocksdbStorage
+from storage import RocksdbStorage, RocksdbStorageV2
 
 
 def main():
@@ -19,7 +19,10 @@ def main():
 
     root_path = os.path.dirname(sys.argv[0])
 
-    storage = RocksdbStorage(os.path.join(root_path, DATABASE_NAME))
+    try:
+        storage = RocksdbStorage(os.path.join(root_path, DATABASE_NAME))
+    except TypeError:
+        storage = RocksdbStorageV2(os.path.join(root_path, DATABASE_NAME))
     deeplab_inst = DeepLab(range(1), root_path, IMG_MEAN, storage)
     fst_inst = Fst(range(1), root_path, IMG_SHAPE, storage)
     server = Server(deeplab_inst, fst_inst, root_path, storage)

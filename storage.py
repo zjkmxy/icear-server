@@ -1,7 +1,10 @@
-import rocksdb
 import os
 from pyndn import Name
 from typing import Union
+try:
+    import rocksdb
+except ImportError:
+    import pyrocksdb as rocksdb
 
 
 class IStorage:
@@ -113,6 +116,65 @@ class RocksdbStorage(IStorage):
         it = self.db.iterkeys()
         it.seek(prefix_bytes)
         return self.Iter(prefix, it)
+
+
+class RocksdbStorageV2(IStorage):
+    def __init__(self, filename="server_cache.db"):
+        self.db = rocksdb.DB()
+        options = rocksdb.Options()
+        options.create_if_missing = True
+        self.db.open(options, filename)
+
+    @staticmethod
+    def convert_name(name):
+        if isinstance(name, Name):
+            name = name.toUri()
+        if isinstance(name, str):
+            name = bytes(name, "utf-8")
+        if not isinstance(name, bytes):
+            raise TypeError
+        return name
+
+    def put(self, name, data):
+        name = self.convert_name(name)
+        self.db.put(rocksdb.WriteOptions(), name, data)
+
+    def get(self, name):
+        name = self.convert_name(name)
+        blob = self.db.get(rocksdb.ReadOptions(), name)
+        if blob.status.ok():
+            return blob.data
+        else:
+            return None
+
+    def delete(self, name):
+        name = self.convert_name(name)
+        self.db.delete(rocksdb.WriteOptions(), name)
+
+    def exists(self, name):
+        return self.get(name) is not None
+
+    def append(self, name, data):
+        name = self.convert_name(name)
+        self.db.put(rocksdb.WriteOptions(), name, self.db.get(name) + data)
+
+    class Iter:
+        def __init__(self, prefix, impl):
+            self.prefix = prefix
+            if isinstance(self.prefix, bytes):
+                self.prefix = self.prefix.decode("utf-8")
+            if isinstance(self.prefix, str):
+                self.prefix = Name(self.prefix)
+            self.impl = impl
+
+        def __next__(self):
+            ret = next(self.impl)
+            name = Name(ret.decode("utf-8"))
+            if not self.prefix.isPrefixOf(name):
+                raise StopIteration
+
+    def enum(self, prefix):
+        raise NotImplementedError
 
 
 class FilesysStorage(IStorage):
