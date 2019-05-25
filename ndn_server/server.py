@@ -7,13 +7,12 @@ from deeplab import DeepLab, DeepLabRequest
 from fst import Fst, FstRequest
 import logging
 from .fetcher import Fetcher
-from .messages.request_msg_pb2 import OpComponent, SegmentParameterMessage, ServerResponseMessage
-from copy import copy
+from .messages.request_msg_pb2 import SegmentParameterMessage, ServerResponseMessage
 from storage import IStorage
-from pycnl import Namespace
 from pycnl.generalized_object import ContentMetaInfo
 from pyndn.util.common import Common
 import struct
+import asyncio
 
 
 # Request succeeded
@@ -73,7 +72,7 @@ class ResultStatus:
 
 
 class Server:
-    def __init__(self, deeplab_manager, fst_manager, root_path, storage):
+    def __init__(self, deeplab_manager, fst_manager, _root_path, storage):
         # type: (DeepLab, Fst, str, IStorage) -> None
         self.face = None
         self.keychain = KeyChain()
@@ -116,7 +115,7 @@ class Server:
         else:
             return None
 
-    def run(self):
+    async def _run(self):
         self.running = True
         while self.running:
             self.face = Face()
@@ -126,8 +125,7 @@ class Server:
                 logging.info("Starting...")
                 while self.running and not self._restart:
                     self.face.processEvents()
-                    self.fetcher.process_tasks()
-                    time.sleep(0.01)
+                    await asyncio.sleep(0.01)
             except ConnectionRefusedError:
                 logging.warning("Connection refused. Retry in %ss.", DISCONN_RETRY_TIME)
             finally:
@@ -135,6 +133,13 @@ class Server:
                 self._network_stop()
             if self.running:
                 time.sleep(DISCONN_RETRY_TIME)
+
+    def run(self):
+        event_loop = asyncio.get_event_loop()
+        try:
+            event_loop.run_until_complete(self._run())
+        finally:
+            event_loop.close()
 
     def stop(self):
         self.running = False
